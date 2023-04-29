@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import datetime
 import matplotlib.dates
 
+print("SURF METRICS FOR Station 46237 - San Francisco Bar, CA (142)")
+
 #Finding wind speed & direction
 # enter city name
 city = "san+francisco+ocean+beach"
@@ -27,23 +29,30 @@ sky = data[1]
 listdiv = soup.findAll('div', attrs={'class': 'BNeawe s3v9rd AP7Wnd'})
 # particular list with required data
 strd = listdiv[5].text
+#print(strd)
 # formatting the string
-pos = strd.find('Wind')
-other_data = strd[pos:].split(" ")
+#pos = strd.find('mph')
+pos = strd.split("·")
+#print(pos)
+
+#other_data = strd[pos:].split(" ")
 # printing all the data
 print("Temperature: ", temp)
 print("Sky Description: ", sky)
+good_wind = 0
+index = 0
+for w in pos:
+    if "mph" in w:
+        index = pos.index(w)
+        if 'W' in w:
+            good_wind = 1
+        elif 'N' in w or 'S' in w:
+            good_wind = 0.5
 
-wind_dir = other_data[0].split('d')
-good_wind= 0
-if 'W' in wind_dir[1]:
-    good_wind = 1
-elif 'N' in wind_dir[1] or 'S' in wind_dir[1]:
-    good_wind = 0.5
-
-print("Wind Direction: ",wind_dir[1])
-print("Wind speed: ",other_data[1])
-if(int(other_data[1])<=10):
+wind = pos[index].split(" ")
+print("Wind Direction: ",wind[1])
+print("Wind speed: ",wind[2],"mph")
+if(int(wind[2])<=10):
     good_wind = good_wind+1
 #PROBABILITY OF GOOD WIND:
 print("THE PROBABILITY OF GOOD WIND IS ",good_wind,"/ 2")
@@ -55,15 +64,15 @@ Bouy = pd.read_csv('https://www.ndbc.noaa.gov/data/realtime2/46237.spec', delim_
 Bouy = Bouy.drop([0])
 #to_drop =['WDIR','WSPD','GST', 'PRES','ATMP', 'DEWP','VIS', 'PTDY','TIDE']
 #Bouy = Bouy.drop(to_drop, axis=1)
-print(Bouy.head())
+#print(Bouy.head())
 
 #WDIR = wind direction
 wdir = 0
 #WSPD = wind speed (m/s)
 wspd = 0
 #WVHT = wave height (m)
-tides=[100,100,-1,-1]
-times = [1,2,3,4]
+tides=[100,-1]
+times = [1,2]
 #APD = average wave period
 #SWH = swell hight
 swh = 0
@@ -75,17 +84,13 @@ swd = 0
 for i in range(0,48):
     #calculate tides
     if float(Bouy.iloc[i][5])<tides[0] and Bouy.iloc[i][3] not in times:
+        #find the min
         tides[0] = float(Bouy.iloc[i][5])
         times[0] = Bouy.iloc[i][3]
-    elif float(Bouy.iloc[i][5])<tides[1] and Bouy.iloc[i][3] not in times:
+    elif float(Bouy.iloc[i][5]) > tides[1] and Bouy.iloc[i][3] not in times:
+        #find the max
         tides[1] = float(Bouy.iloc[i][5])
         times[1] = Bouy.iloc[i][3]
-    elif float(Bouy.iloc[i][5]) > tides[2] and Bouy.iloc[i][3] not in times:
-        tides[2] = float(Bouy.iloc[i][5])
-        times[2] = Bouy.iloc[i][3]
-    elif float(Bouy.iloc[i][5]) > tides[3] and Bouy.iloc[i][3] not in times:
-        tides[3] = float(Bouy.iloc[i][5])
-        times[3] = Bouy.iloc[i][3]
 
     if float(Bouy.iloc[i][6])>=1.5 and float(Bouy.iloc[i][6])<4:
         swh = swh+1
@@ -97,26 +102,34 @@ for i in range(0,48):
 
 #PROBABILITY OF GOOD SWELL:
 swell_score = (swh+swp+swd)/144
-print("The swell score is: ")
-print(swell_score)
+print("The swell score is: ", round(swell_score*100, 2), "%, where it is only recommended to surf when the swell score is 67%")
 #over the past 24 hours, if swell is more than 1.5m & less than 4m
 #if swell period is between 10 and 20 seconds
 #for San Fran, ideally from west
-if swell_score>=0.67:
-    print("GOOD SWELL")
-else:
-    print("BAD SWELL")
 
 #PROBABILITY OF TIDE
-high_tide_1 = (int(times[2])+int(times[3]))/2 #19:30
-low_tide_1 = (int(times[0])+int(times[1]))/2 #3:30
-high_tide_2 = high_tide_1-12 #7:30
-low_tide_2 = low_tide_1+12 #15:30
+times.sort()
+#print(times)
+high_tide_1 = int(times[1])
+low_tide_1 = int(times[0])
+high_tide_2 = high_tide_1-6
+
+if high_tide_2<0:
+    high_tide_2 = high_tide_1+6
 
 #assume daylight hours of 5AM => 7PM
 interval_high_1 = [high_tide_1-1.5, high_tide_1+1.5] #18=>21
 interval_high_2 = [high_tide_2-1.5, high_tide_2+1.5] #6=>9
+#these are the intervals of the day during which it will be high tide
+intervals = interval_high_1+interval_high_2
+#print(intervals)
+for i in intervals:
+    if i<0:
+        intervals[intervals.index(i)] = 12-abs(i)
+    elif i>23.5:
+        intervals[intervals.index(i)] = 24-i
 
+#print(intervals)
 tide_tot = 0
 
 if interval_high_1[1]>19:
