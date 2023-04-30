@@ -50,9 +50,9 @@ for w in pos:
             good_wind = 0.5
 
 wind = pos[index].split(" ")
-print("Wind Direction: ",wind[1])
-print("Wind speed: ",wind[2],"mph")
-if(int(wind[2])<=10):
+print("Wind Direction: ",wind[0])
+print("Wind speed: ",wind[1],"mph")
+if(int(wind[1])<=10):
     good_wind = good_wind+1
 #PROBABILITY OF GOOD WIND:
 print("THE PROBABILITY OF GOOD WIND IS ",good_wind,"/ 2")
