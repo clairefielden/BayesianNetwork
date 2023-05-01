@@ -1,62 +1,135 @@
 import pandas as pd
-import numpy as np
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup as bs
 import requests
+from pyAgrum import pyAgrum
+from pylab import *
+import pyAgrum as gum
+import requests
+import lxml
+import graphviz
 import matplotlib.pyplot as plt
-import datetime
-import matplotlib.dates
+import os
+import pyAgrum.lib.notebook as gnb
+import argparse
+
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36"
+# US english
+LANGUAGE = "en-US,en;q=0.5"
+
+def get_weather_data(url):
+    session = requests.Session()
+    session.headers['User-Agent'] = USER_AGENT
+    session.headers['Accept-Language'] = LANGUAGE
+    session.headers['Content-Language'] = LANGUAGE
+    html = session.get(url)
+    # create a new soup
+    soup = bs(html.text, "html.parser")
+    # store all results on this dictionary
+    result = {}
+    # extract region
+    # extract temperature now
+    result['temp_now'] = soup.find("span", attrs={"id": "wob_tm"}).text
+    # get the day and hour now
+    result['dayhour'] = soup.find("div", attrs={"id": "wob_dts"}).text
+    # get the actual weather
+    result['weather_now'] = soup.find("span", attrs={"id": "wob_dc"}).text
+    # get the precipitation
+    result['precipitation'] = soup.find("span", attrs={"id": "wob_pp"}).text
+    # get the % of humidity
+    result['humidity'] = soup.find("span", attrs={"id": "wob_hm"}).text
+    # extract the wind
+    result['wind'] = soup.find("span", attrs={"id": "wob_ws"}).text
+    city = "san+francisco"
+    url = "https://www.google.com/search?q=" + "wind" + city
+    # requests instance
+    html = requests.get(url).content
+    soup = bs(html, 'html.parser')
+    listdiv = soup.findAll('div', attrs={'class': 'BNeawe s3v9rd AP7Wnd'})
+    # particular list with required data
+    # formatting the string
+    strd2 = listdiv[5].text
+    w = strd2.split(";")
+    #print(w)
+    for x in w:
+        if "mph" in x:
+            dir = x.split(" ")
+            #print(dir)
+            result["dir"] = dir[6]
+            break
+    return result
+
+
+#SETTING UP bn
+# creates an empty BN network with a 'name' property
+bn=gum.BayesNet('Surf?')
+print(bn)
+#create variables
+swell=bn.add(gum.LabelizedVariable('swell','swell ?',2))
+wind=bn.add(gum.LabelizedVariable('wind','windy ?',2))
+tide=bn.add(gum.LabelizedVariable('tide','tide ?',2))
+temp=bn.add(gum.LabelizedVariable('temp','temperature ?',2))
+shark=bn.add(gum.LabelizedVariable('shark','shark ?',2))
+wave=bn.add(gum.LabelizedVariable('wave','waves ?',2))
+surf=bn.add(gum.LabelizedVariable('surf','surf ?',2))
+print(bn)
+# c contains 2 values and described as 'cloudy?', and it will add it to the BN.
+# The value returned is the id of the node in the graphical structure (the DAG)
+# pyAgrum actually distinguishes the random variable (here the labelizedVariable) from its node in the DAG
+# the latter is identified through a numeric id
+# Of course, pyAgrum provides functions to get the id of a node given the corresponding variable
+
+#Add arcs
+for link in [(swell,wind),(tide,wave)]:
+    bn.addArc(*link)
+
+for link in [(temp,shark)]:
+    bn.addArc(*link)
+
+for link in [(wave,surf),(wind,surf), (temp, surf), (shark, surf)]:
+    bn.addArc(*link)
 
 print("SURF METRICS FOR Station 46237 - San Francisco Bar, CA (142)")
 
 #Finding wind speed & direction
-# enter city name
-city = "san+francisco+ocean+beach"
-# create url
-url = "https://www.google.com/search?q=" + "weather" + city
-# requests instance
-html = requests.get(url).content
-# getting raw data
-soup = BeautifulSoup(html, 'html.parser')
-# get the temperature
-temp = soup.find('div', attrs={'class': 'BNeawe iBp4i AP7Wnd'}).text
-# this contains time and sky description
-str = soup.find('div', attrs={'class': 'BNeawe tAd8D AP7Wnd'}).text
-# format the data
-data = str.split('\n')
-time = data[0]
-sky = data[1]
-# list having all div tags having particular class name
-listdiv = soup.findAll('div', attrs={'class': 'BNeawe s3v9rd AP7Wnd'})
-# particular list with required data
-strd = listdiv[5].text
-#print(strd)
-# formatting the string
-#pos = strd.find('mph')
-pos = strd.split("·")
-#print(pos)
+URL = "https://www.google.com/search?lr=lang_en&ie=UTF-8&q=weather"
+region = "san francisco beach"
+if region:
+    region = region.replace(" ", "+")
+    URL += f"+{region}"
+# get data
+data = get_weather_data(URL)
+# print data
+print("Now:", data["dayhour"])
+print(f"Temperature now: {data['temp_now']}°C")
+print("Description:", data['weather_now'])
+print("Precipitation:", data["precipitation"])
+print("Humidity:", data["humidity"])
+print("Wind speed:", data["wind"])
+print("Wind direction:", data["dir"])
 
-#other_data = strd[pos:].split(" ")
-# printing all the data
-print("Temperature: ", temp)
-print("Sky Description: ", sky)
-good_wind = 0
-index = 0
-for w in pos:
-    if "mph" in w:
-        index = pos.index(w)
-        if 'W' in w:
-            good_wind = 1
-        elif 'N' in w or 'S' in w:
-            good_wind = 0.5
+headers = {
+    "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.19582"
+}
 
-wind = pos[index].split(" ")
-print("Wind Direction: ",wind[1])
-print("Wind speed: ",wind[2],"mph")
-if(int(wind[2])<=10):
-    good_wind = good_wind+1
-#PROBABILITY OF GOOD WIND:
-print("THE PROBABILITY OF GOOD WIND IS ",good_wind,"/ 2")
-wind_probability = good_wind/2;
+params = {
+    "q": "san francisco weather",
+    "hl": "en",
+    "gl": "us"
+}
+
+response = requests.get('https://www.google.com/search', headers=headers, params=params).text
+soup = bs(response, 'lxml')
+
+for weather_result in soup.select('.wob_noe .wob_hw'):
+    try:
+        wind_speed = weather_result.select_one('.wob_t').text
+        wind_direction = ' '.join(weather_result.select_one('.wob_t')['aria-label'].split(' ')[2:4])
+
+        print(f"{wind_speed}\n{wind_direction}\n")
+
+    except:
+        pass  # or None instead
 
 #Station 46237 - San Francisco Bar, CA (142)
 Bouy = pd.read_csv('https://www.ndbc.noaa.gov/data/realtime2/46237.spec', delim_whitespace=True)
@@ -102,7 +175,7 @@ for i in range(0,48):
 
 #PROBABILITY OF GOOD SWELL:
 swell_score = (swh+swp+swd)/144
-print("The swell score is: ", round(swell_score*100, 2), "%, where it is only recommended to surf when the swell score is 67%")
+print("The swell score is: ", round(swell_score*100, 2), "%")
 #over the past 24 hours, if swell is more than 1.5m & less than 4m
 #if swell period is between 10 and 20 seconds
 #for San Fran, ideally from west
@@ -146,41 +219,25 @@ print("THE TIDE IS HIGH ",tide_tot,"/14 hours of the day")
 tide_probability = tide_tot/14
 
 #PROBABILITY OF WIND
+good_wind = 0
+index = 0
+if 'W' in data["dir"]:
+    good_wind = 1
+elif 'N' in data["dir"] or 'S' in data["dir"]:
+    good_wind = 0.5
+wind_speed = data["wind"].split(" ")
+if(int(wind_speed[0])<=10):
+    good_wind = good_wind+1
+print("THE PROBABILITY OF GOOD WIND IS ",good_wind,"/ 2")
+wind_probability = good_wind/2;
 
+swell_score_1 = double(swell_score)
+swell_score_0 = double(1-swell_score_1)
+#fill the cpt
+bn.cpt(swell).fillWith(swell_score_0, swell_score_1)
+bn.cpt(wind).fillWith(1-good_wind, good_wind)
+bn.cpt(tide).fillWith(1-tide_probability, tide_probability)
+bn.cpt(temp).fillWith(0.57, 0.43)
+bn.cpt(shark).fillWith(0.97, 0.03)
 
-
-
-
-"""
-from bs4 import BeautifulSoup
-import requests
-import lxml
-import smtplib
-import os
-from pysurfline import SpotForecast
-
-
-
-params={
-    "spotId":"5842041f4e65fad6a7708890",
-    "days":7,
-    "intervalHours":3,
-    }
-spot=SpotForecast(params,verbose=True)
-
-print(spot.wave[:1])
-
-
-html_text = requests.get('https://www.surf-forecast.com/breaks/Big-Bay/forecasts/latest/six_day').text
-
-soup = BeautifulSoup(html_text, 'lxml')
-
-jobs = soup.find_all('td', class_ ="forecast-table__cell forecast-table__cell--has-image")
-
-jobs_string = str(jobs)
-
-if 'alt="0"' in jobs_string or 'alt="8"' in jobs_string or 'alt="9"' in jobs_string or 'alt="10"' in jobs_string:
-    print('Swell is up! Sending notification email now.')
-else:
-    print("Not today!")
-"""
+print(bn)
