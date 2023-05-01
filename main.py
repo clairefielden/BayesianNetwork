@@ -79,7 +79,7 @@ print(bn)
 # Of course, pyAgrum provides functions to get the id of a node given the corresponding variable
 
 #Add arcs
-for link in [(swell,wind),(tide,wave)]:
+for link in [(swell,wave),(tide,wave)]:
     bn.addArc(*link)
 
 for link in [(temp,shark)]:
@@ -234,10 +234,36 @@ wind_probability = good_wind/2;
 swell_score_1 = double(swell_score)
 swell_score_0 = double(1-swell_score_1)
 #fill the cpt
-bn.cpt(swell).fillWith(swell_score_0, swell_score_1)
-bn.cpt(wind).fillWith(1-good_wind, good_wind)
-bn.cpt(tide).fillWith(1-tide_probability, tide_probability)
-bn.cpt(temp).fillWith(0.57, 0.43)
-bn.cpt(shark).fillWith(0.97, 0.03)
+bn.cpt(swell).fillWith([swell_score_0, swell_score_1])
+bn.cpt(wind).fillWith([1-good_wind, good_wind])
+bn.cpt(tide).fillWith([1-tide_probability, tide_probability])
+bn.cpt(temp).fillWith([0.57, 0.43])
+
+bn.cpt("shark")[0,:]=[0.55,0.02]
+bn.cpt("shark")[1,:]=[0.42,0.01]
+
+bn.cpt("wave")[0,0,:] = [1, 0]
+bn.cpt("wave")[0,1,:] = [1, 0]
+bn.cpt("wave")[1,0,:] = [0.5, 0.5]
+bn.cpt("wave")[1,1,:] = [0, 1]
+
+bn.cpt("surf")[0,0,0,0] = [1,0]
+bn.cpt("surf")[0,0,0,1] = [1, 0]
+bn.cpt("surf")[0,0,1,0] = [1,0]
+bn.cpt("surf")[0,0,1,1] = [1,0]
+bn.cpt("surf")[0,1,0,0] = [1,0]
+bn.cpt("surf")[0,1,0,1] = [1, 0]
+bn.cpt("surf")[0,1,1,0] = [1,0]
+bn.cpt("surf")[0,1,1,1] = [1,0]
+
+bn.cpt("surf")[1,0,0,0] = [0.5,0.5]
+bn.cpt("surf")[1,0,0,1] = [0.75,0.25]
+bn.cpt("surf")[1,0,1,0] = [0.25,0.75]
+bn.cpt("surf")[1,0,1,1] = [0.5,0.5]
+bn.cpt("surf")[1,1,0,0] = [0.25,0.75]
+bn.cpt("surf")[1,1,0,1] = [0.5,0.5]
+bn.cpt("surf")[1,1,1,0] = [0,1]
+bn.cpt("surf")[1,1,1,1] = [0.25,0.75]
+
 
 print(bn)
